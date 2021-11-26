@@ -1,277 +1,13 @@
 require Logger
 
 defmodule DocPrepper do
-  defmodule Arg do
-    defstruct [
-      position: 0,
-      name: nil,
-      type: nil,
-      template_elements: nil,
-      is_splat: false,
-      is_optional: false,
-      default: nil,
-      tuple: nil,
-    ]
-  end
+  alias DocPrepper.Document
+  alias DocPrepper.ExtractState
+  alias DocPrepper.Types
+  alias DocPrepper.Arg
+  alias DocPrepper.FunctionSpec
 
-  defmodule FunctionSpec do
-    defstruct [
-      scope: nil,
-      name: nil,
-      args: [],
-      return: nil,
-      description: nil,
-      decorators: [],
-    ]
-  end
-
-  defmodule Types do
-    defmodule TypedTuple do
-      defstruct [
-        type: nil,
-        tuple: nil,
-      ]
-    end
-
-    defmodule Functional do
-      defstruct [
-        type: nil,
-        returns: nil,
-      ]
-    end
-
-    defmodule Template do
-      defstruct [
-        :name,
-        :elements,
-        :arity,
-      ]
-    end
-
-    defmodule Optional do
-      defstruct [types: []]
-    end
-
-    defmodule Simple do
-      defstruct [
-        :arity, # only used for Function/*
-        :name
-      ]
-    end
-
-    defmodule Array do
-      defstruct [:inner]
-    end
-
-    defmodule Table do
-      defstruct [:fields]
-    end
-
-    def extract_name_and_template!(%Array{inner: inner}) do
-      {extract_name!(inner), nil}
-    end
-
-    def extract_name_and_template!(%Simple{} = type) do
-      {extract_name!(type), nil}
-    end
-
-    def extract_name_and_template!(%Template{} = type) do
-      {type.name, type}
-    end
-
-    def extract_name!([type]) do
-      extract_name!(type)
-    end
-
-    def extract_name!(%Arg{name: nil, type: %_{} = type}) do
-      extract_name!(type)
-    end
-
-    def extract_name!(%Arg{name: name}) when is_binary(name) do
-      name
-    end
-
-    def extract_name!(%Simple{name: name, arity: nil}) do
-      name
-    end
-  end
-
-  defmodule Class do
-    defstruct [
-      specs: %{},
-      aliases: %{},
-      types: %{},
-      consts: %{},
-      members: %{},
-    ]
-  end
-
-  defmodule Namespace do
-    defstruct [
-      aliases: %{},
-      classes: %{},
-      types: %{},
-      consts: %{},
-      specs: %{},
-      members: %{},
-    ]
-
-    def add_class(namespace, name) do
-      classes = Map.put_new(namespace.classes, name, %Class{})
-
-      put_in(namespace.classes, classes)
-    end
-  end
-
-  defmodule ExtractState do
-    defstruct [
-      acc: [],
-      next_decorators: [],
-      current_filename: nil,
-      current_class: nil,
-      current_namespace: ".",
-      namespaces: %{
-        "." => %Namespace{},
-      },
-    ]
-
-    @type t :: %__MODULE__{}
-
-    def add_to_acc(line, state) do
-      %{state | acc: [line | state.acc]}
-    end
-
-    def reset_acc(state) do
-      %{state | acc: []}
-    end
-
-    def take_acc(state) do
-      blob = String.trim(IO.iodata_to_binary(Enum.reverse(state.acc)))
-
-      {blob, reset_acc(state)}
-    end
-
-    def take_decorators(state) do
-      {state.next_decorators, %{state | next_decorators: []}}
-    end
-
-    def update_current_namespace(state, mapper) do
-      namespace = mapper.(state.namespaces[state.current_namespace])
-
-      put_in(state.namespaces[state.current_namespace], namespace)
-    end
-
-    def update_current_class(state, mapper) do
-      update_current_namespace(state, fn namespace ->
-        class = mapper.(namespace.classes[state.current_class])
-        put_in(namespace.classes[state.current_class], class)
-      end)
-    end
-
-    def unset_current_class(state) do
-      %{state | current_class: nil}
-    end
-
-    def put_new_class(state, name) do
-      state =
-        update_current_namespace(state, fn namespace ->
-          Namespace.add_class(namespace, name)
-        end)
-
-      %{state | current_class: name}
-    end
-
-    def unset_current_namespace(state) do
-      %{state | current_namespace: "."}
-    end
-
-    @doc """
-    Maybe initialize a new namespace, if it already exists nothing happens.
-    """
-    @spec patch_new_namespace(t(), String.t()) :: t()
-    def patch_new_namespace(%__MODULE__{} = state, name) do
-      namespaces =
-        Map.put_new(state.namespaces, name, %Namespace{})
-
-      IO.puts "PUT NAMESPACE #{name}"
-      %{state | current_namespace: name, namespaces: namespaces}
-    end
-
-    def put_spec(state, %FunctionSpec{name: name} = funcspec) do
-      if state.current_class do
-        IO.puts "CLASS[#{state.current_class}] SPEC #{name}"
-        update_current_class(state, fn class ->
-          put_in(class.specs[name], funcspec)
-        end)
-      else
-        IO.puts "NAMESPACE[#{state.current_namespace}] SPEC #{name}"
-        update_current_namespace(state, fn namespace ->
-          put_in(namespace.specs[name], funcspec)
-        end)
-      end
-    end
-
-    def put_alias(state, name, source) do
-      if state.current_class do
-        IO.puts "CLASS[#{state.current_class}] ALIAS #{name} = #{source}"
-        update_current_class(state, fn class ->
-          put_in(class.aliases[name], source)
-        end)
-      else
-        IO.puts "NAMESPACE[#{state.current_namespace}] ALIAS #{name} = #{source}"
-        update_current_namespace(state, fn namespace ->
-          put_in(namespace.aliases[name], source)
-        end)
-      end
-    end
-
-    def put_type(state, %Arg{name: name} = arg) do
-      if state.current_class do
-        IO.puts "CLASS[#{state.current_class}] TYPE #{name} = #{inspect arg}"
-        update_current_class(state, fn class ->
-          put_in(class.types[name], arg)
-        end)
-      else
-        IO.puts "NAMESPACE[#{state.current_namespace}] TYPE #{name} = #{inspect arg}"
-        update_current_namespace(state, fn namespace ->
-          put_in(namespace.types[name], arg)
-        end)
-      end
-    end
-
-    def put_const(state, %Arg{name: name} = arg) do
-      if state.current_class do
-        IO.puts "CLASS[#{state.current_class}] CONST #{name} = #{inspect arg}"
-        update_current_class(state, fn class ->
-          put_in(class.consts[name], arg)
-        end)
-      else
-        IO.puts "NAMESPACE[#{state.current_namespace}] CONST #{name} = #{inspect arg}"
-        update_current_namespace(state, fn namespace ->
-          put_in(namespace.consts[name], arg)
-        end)
-      end
-    end
-
-    def put_member(state, %Arg{name: name} = arg) do
-      if state.current_class do
-        IO.puts "CLASS[#{state.current_class}] MEMBER #{name} = #{inspect arg}"
-        update_current_class(state, fn class ->
-          put_in(class.members[name], arg)
-        end)
-      else
-        IO.puts "NAMESPACE[#{state.current_namespace}] MEMBER #{name} = #{inspect arg}"
-        update_current_namespace(state, fn namespace ->
-          put_in(namespace.members[name], arg)
-        end)
-      end
-    end
-
-    def add_next_decorator(decorator, state) do
-      %{state | next_decorators: [decorator, state.next_decorators]}
-    end
-  end
-
+  @spec parse_directory(Path.t()) :: Document.t()
   def parse_directory(dirname) do
     lua_filenames = Path.wildcard(Path.join(dirname, "**/*.lua"))
 
@@ -287,23 +23,27 @@ defmodule DocPrepper do
 
     state = %ExtractState{}
 
-    Enum.reduce(result, state, fn {filename, comments}, state ->
-      try do
-        state = %{state | current_filename: filename}
-        IO.puts "FILE #{state.current_filename}"
-        state = ExtractState.unset_current_namespace(state)
-        state = ExtractState.unset_current_class(state)
-        Enum.reduce(comments, state, fn rows, state ->
-          extract_metadata(IO.iodata_to_binary(rows), ExtractState.reset_acc(state))
-        end)
-      rescue ex ->
-        reraise """
-        Error occured while reading file "#{filename}"
+    state =
+      Enum.reduce(result, state, fn {filename, comments}, state ->
+        try do
+          state = %{state | current_filename: filename}
+          IO.puts "FILE #{state.current_filename}"
+          state =
+            ExtractState.reset_state(state)
 
-        Caused By: #{Exception.format(:error, ex)}
-        """, __STACKTRACE__
-      end
-    end)
+          Enum.reduce(comments, state, fn rows, state ->
+            extract_metadata(IO.iodata_to_binary(rows), ExtractState.reset_acc(state))
+          end)
+        rescue ex ->
+          reraise """
+          Error occured while reading file "#{filename}"
+
+          Caused By: #{Exception.format(:error, ex)}
+          """, __STACKTRACE__
+        end
+      end)
+
+    Document.extract_state_to_document(state)
   end
 
   defp extract_comment_blocks(line, {state, comment_rows, comments}) when is_binary(line) do
