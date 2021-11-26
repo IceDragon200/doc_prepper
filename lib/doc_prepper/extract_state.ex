@@ -1,8 +1,8 @@
 defmodule DocPrepper.ExtractState do
   alias DocPrepper.Arg
   alias DocPrepper.FunctionSpec
+  alias DocPrepper.FunctionSpecs
   alias DocPrepper.Namespace
-  #alias DocPrepper.Class
 
   defstruct [
     acc: [],
@@ -14,6 +14,8 @@ defmodule DocPrepper.ExtractState do
       "." => %Namespace{},
     },
   ]
+
+  alias __MODULE__, as: ExtractState
 
   @type t :: %__MODULE__{}
 
@@ -47,16 +49,17 @@ defmodule DocPrepper.ExtractState do
     %{state | next_decorators: []}
   end
 
-  def update_current_namespace(state, mapper) do
+  def update_current_namespace(%ExtractState{} = state, mapper) do
     namespace = mapper.(state.namespaces[state.current_namespace])
 
     put_in(state.namespaces[state.current_namespace], namespace)
   end
 
-  def update_current_class(state, mapper) do
+  def update_current_class(%ExtractState{} = state, mapper) do
     update_current_namespace(state, fn namespace ->
-      class = mapper.(namespace.classes[state.current_class])
-      put_in(namespace.classes[state.current_class], class)
+      class = namespace.namespaces[state.current_class] || %Namespace{}
+      class = mapper.(class)
+      put_in(namespace.namespaces[state.current_class], class)
     end)
   end
 
@@ -95,12 +98,16 @@ defmodule DocPrepper.ExtractState do
     if state.current_class do
       IO.puts "CLASS[#{state.current_class}] SPEC #{name}"
       update_current_class(state, fn class ->
-        put_in(class.specs[name], funcspec)
+        function_specs = class.specs
+        function_specs = FunctionSpecs.add_function(function_specs, funcspec)
+        put_in(class.specs, function_specs)
       end)
     else
       IO.puts "NAMESPACE[#{state.current_namespace}] SPEC #{name}"
       update_current_namespace(state, fn namespace ->
-        put_in(namespace.specs[name], funcspec)
+        function_specs = namespace.specs
+        function_specs = FunctionSpecs.add_function(function_specs, funcspec)
+        put_in(namespace.specs, function_specs)
       end)
     end
   end

@@ -1,0 +1,71 @@
+<%= case @type do %>
+<%= %DocPrepper.Types.Table.Key{name: nil, type: type} -> %>
+  [<%= render_type(type: type) %>]
+
+<%= %DocPrepper.Types.Table.Key{name: name, type: nil} -> %>
+  <b><%= name %></b>
+
+<%= %DocPrepper.Types.Table{fields: fields} -> %>
+  <span class="type-table">
+    <span>{</span>
+    <%= Enum.join(Enum.map(fields, fn property -> %>
+      <%= render_type(type: property.key) %>
+      <%= ":" %>
+      <%= render_type(type: property.value) %>
+    <% end), ", ") %>
+    <span>}</span>
+  </span>
+
+<%= %DocPrepper.Types.TypedTuple{type: type, tuple: tuple} -> %>
+  <span class="type-typed-tuple">
+    <%= render_type(type: type) %>
+    <%= "(" %>
+    <%= render_type(type: tuple) %>
+    <%= ")" %>
+  </span>
+
+<%= %DocPrepper.Types.Functional{type: type, returns: returns} -> %>
+  <span class="type-functional">
+    <%= render_type(type: type) %>
+    <%= "=>" %>
+    <%= render_type(type: returns) %>
+  </span>
+
+<%= %DocPrepper.Types.Simple{name: name} -> %>
+  <span class="type-name">
+    <a href="#"><%= name %></a>
+  </span>
+
+<%= %DocPrepper.Types.Optional{types: types} -> %>
+  <span class="optional-type-name">
+    <%= Enum.intersperse(Enum.map(types, &render_type(type: &1)), "|") %>
+  </span>
+
+<%= %DocPrepper.Types.Array{inner: inner} -> %>
+  <span class="array-type-name">
+    [<%= render_type(type: inner) %>]
+  </span>
+
+<%= %DocPrepper.Arg{name: nil, tuple: nil, type: nil} -> %>
+  <span></span>
+
+<%= %DocPrepper.Arg{name: nil, tuple: tuple} when is_list(tuple) -> %>
+  <span class="tuple-type-name">
+    (<%= Enum.intersperse(Enum.map(tuple, &render_type(type: &1)), ",") %>)
+  </span>
+
+<%= %DocPrepper.Arg{name: nil, type: type} when not is_nil(type) -> %>
+  <%= render_type(type: type) %>
+
+<%= %DocPrepper.Arg{name: name, type: type} when is_binary(name) and not is_nil(type) -> %>
+  <span class="type-arg-name">
+    <b><%= name %></b>:
+  </span>
+  <%= render_type(type: type) %>
+
+<%= %DocPrepper.Types.Template{elements: elements} -> %>
+  <span>&lt;<%= render_type(type: elements) %>&gt;</span>
+
+<%= [_ | _] -> %>
+  <%= Enum.intersperse(Enum.map(@type, &render_type(type: &1)), ", ") %>
+<% end %>

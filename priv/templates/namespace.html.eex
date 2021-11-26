@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+<head>
+  <title><%= @name %></title>
+</head>
+
+<body>
+  <div class="namespace">
+    <h1 class="namespace-name">
+      <%= @name %>
+    </h1>
+
+    <%= unless Enum.empty?(@namespace.types) do %>
+      <section id="types">
+        <h2>
+          Types
+        </h2>
+        <div class="types">
+          <ul>
+            <%= for {name, type} <- Enum.sort(@namespace.types) do %>
+              <li>
+                <%= render_type_spec name: name, type: type %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.consts) do %>
+      <section id="consts">
+        <h2>
+          Constants
+        </h2>
+        <div class="consts">
+          <ul>
+            <%= for {name, const} <- Enum.sort(@namespace.consts) do %>
+              <li>
+                <%= render_const name: name, const: const %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.aliases) do %>
+      <section id="aliases">
+        <h2>
+          Aliases
+        </h2>
+        <div class="aliases">
+
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.specs.functions) do %>
+      <section id="functions">
+        <h2>
+          Functions
+        </h2>
+        <div class="functions">
+          <ul>
+            <%= for {name, func} <- Enum.sort(@namespace.specs.functions) do %>
+              <li>
+                <%= render_func name: name, func: func %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.specs.class_methods) do %>
+      <section id="class_methods">
+        <h2>
+          Class Methods
+        </h2>
+        <div class="class_methods">
+          <ul>
+            <%= for {name, func} <- Enum.sort(@namespace.specs.class_methods) do %>
+              <li>
+                <%= render_func name: name, func: func %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.specs.methods) do %>
+      <section id="methods">
+        <h2>
+          Instance Methods
+        </h2>
+        <div class="methods">
+          <ul>
+            <%= for {name, func} <- Enum.sort(@namespace.specs.methods) do %>
+              <li>
+                <%= render_func name: name, func: func %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.classes) do %>
+      <section id="classes">
+        <h2>
+          Classes
+        </h2>
+        <div class="classes">
+          <ul>
+            <%= for {name, class} <- Enum.sort(@namespace.classes) do %>
+              <li>
+                <%= render_class_spec name: name, class: class, path: @path %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.members) do %>
+      <section id="members">
+        <h2>
+          Members
+        </h2>
+        <div class="members">
+
+        </div>
+      </section>
+    <% end %>
+
+    <%= unless Enum.empty?(@namespace.namespaces) do %>
+      <section id="namespaces">
+        <h2>
+          Namespaces
+        </h2>
+        <div class="namespaces">
+          <ul>
+            <%= for {name, namespace} <- Enum.sort(@namespace.namespaces) do %>
+              <li>
+                <%= render_namespace_spec name: name, namespace: namespace, path: @path %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </section>
+    <% end %>
+  </div>
+</body>
+</html>

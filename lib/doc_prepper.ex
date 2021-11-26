@@ -80,11 +80,11 @@ defmodule DocPrepper do
     {:none, nil, comments}
   end
 
-  defp extract_metadata("", state) do
+  def extract_metadata("", state) do
     state
   end
 
-  defp extract_metadata(doc, state) do
+  def extract_metadata(doc, state) do
     case doc do
       <<"@", _::binary>> = line ->
         case line do
@@ -144,7 +144,15 @@ defmodule DocPrepper do
             extract_metadata(rest, state)
 
           <<"@recursive", rest::binary>> ->
-            {flag, rest} = parse_name(rest)
+            {flag, rest} =
+              case parse_name(rest) do
+                nil ->
+                  {nil, rest}
+
+                res ->
+                  res
+              end
+
             IO.inspect {{:decorator, :recursive}, flag}
             state = ExtractState.add_next_decorator({:recursive, flag}, state)
             extract_metadata(rest, state)
@@ -193,11 +201,11 @@ defmodule DocPrepper do
     extract_description(rest, :body, [<<c>> | acc])
   end
 
-  defp parse_function_spec("", _, acc) do
+  def parse_function_spec("", _, acc) do
     raise "incomplete function spec"
   end
 
-  defp parse_function_spec(rest, :start, acc) do
+  def parse_function_spec(rest, :start, acc) do
     {name, rest} =
       case parse_name(rest) do
         {"", rest2} ->
@@ -215,13 +223,13 @@ defmodule DocPrepper do
     {scope, name} =
       case name do
         <<"#", name::binary>> ->
-          {"method", name}
+          {:method, name}
 
         <<"&", name::binary>> ->
-          {"class_method", name}
+          {:class_method, name}
 
         <<c::utf8, _rest::binary>> = name when (c >= ?A and c <= ?Z) or (c >= ?a and c <= ?z) ->
-          {"function", name}
+          {:function, name}
       end
 
     {args, rest} = maybe_parse_args(rest)
@@ -247,6 +255,10 @@ defmodule DocPrepper do
     do_parse_name(str, [])
   end
 
+  defp do_parse_name("", []) do
+    nil
+  end
+
   defp do_parse_name("", acc) do
     {IO.iodata_to_binary(Enum.reverse(acc)), ""}
   end
@@ -261,11 +273,15 @@ defmodule DocPrepper do
     do_parse_name(rest, [<<c::utf8>> | acc])
   end
 
+  defp do_parse_name(rest, []) do
+    nil
+  end
+
   defp do_parse_name(rest, acc) do
     {IO.iodata_to_binary(Enum.reverse(acc)), rest}
   end
 
-  defp maybe_parse_args(rest) do
+  def maybe_parse_args(rest) do
     rest = trim_lspace(rest)
 
     case rest do
@@ -291,7 +307,9 @@ defmodule DocPrepper do
     end
   end
 
-  defp parse_args(rest, acc) do
+  def parse_args(rest, acc \\ [])
+
+  def parse_args(rest, acc) do
     rest = trim_lspace(rest)
 
     {arg, rest} = parse_arg(rest)
@@ -307,7 +325,7 @@ defmodule DocPrepper do
     end
   end
 
-  defp parse_arg(rest) do
+  def parse_arg(rest) do
     rest = trim_lspace(rest)
     {is_splat, rest} = parse_splat(rest)
 
@@ -376,135 +394,135 @@ defmodule DocPrepper do
     end
   end
 
-  defp maybe_parse_return_type(<<"=>", rest::binary>>) do
+  def maybe_parse_return_type(<<"=>", rest::binary>>) do
     rest = trim_lspace(rest)
     parse_type(rest)
   end
 
-  defp maybe_parse_return_type(rest) do
+  def maybe_parse_return_type(rest) do
     {nil, rest}
   end
 
-  defp parse_arity(rest, state \\ :start, acc \\ [])
+  def parse_arity(rest, state \\ :start, acc \\ [])
 
-  defp parse_arity(<<"/", rest::binary>>, :start, acc) do
+  def parse_arity(<<"/", rest::binary>>, :start, acc) do
     parse_arity(rest, :start_number, acc)
   end
 
-  defp parse_arity(rest, :start, _acc) do
+  def parse_arity(rest, :start, _acc) do
     {nil, rest}
   end
 
-  defp parse_arity(<<c::utf8, rest::binary>>, state, acc) when state in [:start_number, :number] and
+  def parse_arity(<<c::utf8, rest::binary>>, state, acc) when state in [:start_number, :number] and
                                                                c >= ?0 and c <= ?9 do
     parse_arity(rest, :number, [<<c::utf8>> | acc])
   end
 
-  defp parse_arity(<<"+", rest::binary>>, :number, acc) do
+  def parse_arity(<<"+", rest::binary>>, :number, acc) do
     count = String.to_integer(IO.iodata_to_binary(Enum.reverse(acc)), 10)
     {{count, true}, rest}
   end
 
-  defp parse_arity(<<rest::binary>>, :number, acc) do
+  def parse_arity(<<rest::binary>>, :number, acc) do
     count = String.to_integer(IO.iodata_to_binary(Enum.reverse(acc)), 10)
     {{count, false}, rest}
   end
 
-  defp parse_value(<<"\"", _rest::binary>> = rest) do
+  def parse_value(<<"\"", _rest::binary>> = rest) do
     parse_string(rest)
   end
 
-  defp parse_value(<<s::utf8, "0x", _rest::binary>> = rest) when s == ?- or s == ?+ do
+  def parse_value(<<s::utf8, "0x", _rest::binary>> = rest) when s == ?- or s == ?+ do
     parse_hex_number(rest)
   end
 
-  defp parse_value(<<"0x", _rest::binary>> = rest) do
+  def parse_value(<<"0x", _rest::binary>> = rest) do
     parse_hex_number(rest)
   end
 
-  defp parse_value(<<s::utf8, c::utf8, _rest::binary>> = rest)
+  def parse_value(<<s::utf8, c::utf8, _rest::binary>> = rest)
         when (s == ?- or s == ?+) and
               c >= ?0 and c <= ?9 do
     # some kind of number
     parse_number(rest)
   end
 
-  defp parse_value(<<c::utf8, _rest::binary>> = rest) when c >= ?0 and c <= ?9 do
+  def parse_value(<<c::utf8, _rest::binary>> = rest) when c >= ?0 and c <= ?9 do
     # some kind of number
     parse_number(rest)
   end
 
-  defp parse_string(rest, state \\ :start, acc \\ [])
+  def parse_string(rest, state \\ :start, acc \\ [])
 
-  defp parse_string(<<"\"", rest::binary>>, :start, acc) do
+  def parse_string(<<"\"", rest::binary>>, :start, acc) do
     parse_string(rest, :body, acc)
   end
 
-  defp parse_string(<<"\"", rest::binary>>, :body, acc) do
+  def parse_string(<<"\"", rest::binary>>, :body, acc) do
     {{:string, IO.iodata_to_binary(Enum.reverse(acc))}, rest}
   end
 
-  defp parse_string(<<c::utf8, rest::binary>>, :body, acc) do
+  def parse_string(<<c::utf8, rest::binary>>, :body, acc) do
     parse_string(rest, :body, [<<c::utf8>> | acc])
   end
 
-  defp parse_hex_number(rest, state \\ :start, acc \\ [])
+  def parse_hex_number(rest, state \\ :start, acc \\ [])
 
-  defp parse_hex_number(<<s::utf8, "0x", rest::binary>>, :start, acc) when s == ?- or s == ?+ do
+  def parse_hex_number(<<s::utf8, "0x", rest::binary>>, :start, acc) when s == ?- or s == ?+ do
     parse_hex_number(rest, :body, ["0x", <<s::utf8>> | acc])
   end
 
-  defp parse_hex_number(<<"0x", rest::binary>>, :start, acc) do
+  def parse_hex_number(<<"0x", rest::binary>>, :start, acc) do
     parse_hex_number(rest, :body, ["0x" | acc])
   end
 
-  defp parse_hex_number(<<c::utf8, rest::binary>>, :body, acc) when (c >= ?0 and c <= ?9) or
+  def parse_hex_number(<<c::utf8, rest::binary>>, :body, acc) when (c >= ?0 and c <= ?9) or
                                                                     (c >= ?a and c <= ?f) or
                                                                     (c >= ?A and c <= ?F) do
     parse_hex_number(rest, :body, [<<c::utf8>> | acc])
   end
 
-  defp parse_hex_number(rest, :body, acc) do
+  def parse_hex_number(rest, :body, acc) do
     {{:hexint, IO.iodata_to_binary(Enum.reverse(acc))}, rest}
   end
 
-  defp parse_number(rest, state \\ :integer_start, acc \\ [])
+  def parse_number(rest, state \\ :integer_start, acc \\ [])
 
-  defp parse_number(<<c::utf8, rest::binary>>, :integer_start, acc) when c == ?- or c == ?+ do
+  def parse_number(<<c::utf8, rest::binary>>, :integer_start, acc) when c == ?- or c == ?+ do
     parse_number(rest, :integer_number, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, state, acc)
+  def parse_number(<<c::utf8, rest::binary>>, state, acc)
         when state in [:integer_start, :integer, :integer_number] and c >= ?0 and c <= ?9 do
     parse_number(rest, :integer, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, :integer, acc) when c == ?E or c == ?e do
+  def parse_number(<<c::utf8, rest::binary>>, :integer, acc) when c == ?E or c == ?e do
     parse_number(rest, :exponent_start, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, :decimal, acc) when c == ?E or c == ?e do
+  def parse_number(<<c::utf8, rest::binary>>, :decimal, acc) when c == ?E or c == ?e do
     parse_number(rest, :exponent_start, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, :integer, acc) when c == ?. do
+  def parse_number(<<c::utf8, rest::binary>>, :integer, acc) when c == ?. do
     parse_number(rest, :decimal_start, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, :decimal_start, acc) when c >= ?0 and c <= ?9 do
+  def parse_number(<<c::utf8, rest::binary>>, :decimal_start, acc) when c >= ?0 and c <= ?9 do
     parse_number(rest, :decimal, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, :exponent_start, acc) when c == ?- or c == ?+ do
+  def parse_number(<<c::utf8, rest::binary>>, :exponent_start, acc) when c == ?- or c == ?+ do
     parse_number(rest, :exponent_number, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(<<c::utf8, rest::binary>>, state, acc)
+  def parse_number(<<c::utf8, rest::binary>>, state, acc)
         when state in [:exponent_start, :exponent_number, :exponent] and c >= ?0 and c <= ?9 do
     parse_number(rest, :exponent, [<<c::utf8>> | acc])
   end
 
-  defp parse_number(rest, state, acc) when state in [:integer, :decimal, :exponent] do
+  def parse_number(rest, state, acc) when state in [:integer, :decimal, :exponent] do
     type =
       case state do
         :integer -> :integer
@@ -515,31 +533,124 @@ defmodule DocPrepper do
     {{type, IO.iodata_to_binary(Enum.reverse(acc))}, rest}
   end
 
-  defp parse_splat(<<"...", rest::binary>>) do
+  def parse_splat(<<"...", rest::binary>>) do
     {true, rest}
   end
 
-  defp parse_splat(rest) do
+  def parse_splat(rest) do
     {false, rest}
   end
 
-  defp parse_optional(<<"?", rest::binary>>) do
+  def parse_optional(<<"?", rest::binary>>) do
     {true, rest}
   end
 
-  defp parse_optional(rest) do
+  def parse_optional(rest) do
     {nil, rest}
   end
 
-  defp parse_type(<<"{", rest::binary>>) do
+  def parse_table_inner_property("") do
+    throw "unclosed table"
+  end
+
+  def parse_table_inner_property(rest) when is_binary(rest) do
+    rest = trim_lspace(rest)
+
+    {key, rest} =
+      case rest do
+        <<"[", _::binary>> ->
+          parse_type(rest)
+
+        _ ->
+          case parse_name(rest) do
+            nil ->
+              throw {:abort, :parse_name, rest}
+
+            {name, rest} ->
+              {name, rest}
+          end
+      end
+
+    {optional, rest} = parse_optional(rest)
+
+    key =
+      case key do
+        key when is_binary(key) ->
+          %Types.Table.Key{name: key, is_optional: optional}
+
+        _ ->
+          %Types.Table.Key{type: key, is_optional: optional}
+      end
+
+    rest = trim_lspace(rest)
+
+    {value_type, rest} =
+      case rest do
+        <<":", rest::binary>> ->
+          # next is a value type
+          rest = trim_lspace(rest)
+          parse_type(rest)
+
+        _ ->
+          {nil, rest}
+      end
+
+    IO.inspect {:value_type, value_type}
+
+    rest = trim_lspace(rest)
+
+    {value, rest} =
+      case rest do
+        <<"=", rest::binary>> ->
+          # next is a value type
+          rest = trim_lspace(rest)
+          parse_value(rest)
+
+        _ ->
+          {nil, rest}
+      end
+
+    {%Types.Table.Property{key: key, value: %Arg{
+      type: value_type,
+      default: value,
+    }}, rest}
+  end
+
+  def parse_table_inner(rest, acc \\ [])
+
+  def parse_table_inner(rest, acc) do
+    try do
+      rest = trim_lspace(rest)
+      {property, rest} = parse_table_inner_property(rest)
+      acc = [property | acc]
+
+      case trim_lspace(rest) do
+        <<",", rest::binary>> ->
+          parse_table_inner(rest, acc)
+
+        _ ->
+          {Enum.reverse(acc), rest}
+      end
+    catch {:abort, fn_name, parse_rest} ->
+      IO.puts """
+      aborted from #{fn_name}
+
+      rest:
+        #{parse_rest}
+      """
+      {Enum.reverse(acc), rest}
+    end
+  end
+
+  def parse_type(<<"{", rest::binary>>) do
     # map or table
     rest = trim_lspace(rest)
-    {fields, rest} = parse_args(rest, [])
+    {fields, rest} = parse_table_inner(rest)
     <<"}", rest::binary>> = trim_lspace(rest)
     {%Types.Table{fields: fields}, rest}
   end
 
-  defp parse_type(<<"[", rest::binary>>) do
+  def parse_type(<<"[", rest::binary>>) do
     # this the alternative array syntax based on elixir's `[T]`
     rest = trim_lspace(rest)
     {inner_type, rest} = parse_args(rest, [])
@@ -547,8 +658,16 @@ defmodule DocPrepper do
     {%Types.Array{inner: inner_type}, rest}
   end
 
-  defp parse_type(rest) when is_binary(rest) do
-    {typename, rest} = parse_name(rest)
+  def parse_type(rest) when is_binary(rest) do
+    {typename, rest} =
+      case parse_name(rest) do
+        nil ->
+          {nil, rest}
+
+        {_, _} = res ->
+          res
+      end
+
     rest = trim_lspace(rest)
 
     {type, rest} =
@@ -636,35 +755,35 @@ defmodule DocPrepper do
     end
   end
 
-  defp trim_lspace(<<"\s", rest::binary>>) do
+  def trim_lspace(<<"\s", rest::binary>>) do
     trim_lspace(rest)
   end
 
-  defp trim_lspace(<<"\r", rest::binary>>) do
+  def trim_lspace(<<"\r", rest::binary>>) do
     trim_lspace(rest)
   end
 
-  defp trim_lspace(<<"\n", rest::binary>>) do
+  def trim_lspace(<<"\n", rest::binary>>) do
     trim_lspace(rest)
   end
 
-  defp trim_lspace(rest) do
+  def trim_lspace(rest) do
     rest
   end
 
-  defp read_rest_of_line(rest) do
+  def read_rest_of_line(rest) do
     do_read_rest_of_line(rest, [])
   end
 
-  defp do_read_rest_of_line(<<"\r\n", rest::binary>>, acc) do
+  def do_read_rest_of_line(<<"\r\n", rest::binary>>, acc) do
     {IO.iodata_to_binary(Enum.reverse(acc)), rest}
   end
 
-  defp do_read_rest_of_line(<<"\n", rest::binary>>, acc) do
+  def do_read_rest_of_line(<<"\n", rest::binary>>, acc) do
     {IO.iodata_to_binary(Enum.reverse(acc)), rest}
   end
 
-  defp do_read_rest_of_line(<<c::utf8, rest::binary>>, acc) do
+  def do_read_rest_of_line(<<c::utf8, rest::binary>>, acc) do
     do_read_rest_of_line(rest, [<<c::utf8>> | acc])
   end
 end

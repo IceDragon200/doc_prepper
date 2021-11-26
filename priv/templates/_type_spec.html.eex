@@ -1,0 +1,5 @@
+<div id="type-spec-<%= @name %>" class="type-spec">
+  <h3 class="type-name">
+    <%= render_type type: @type %>
+  </h3>
+</div>

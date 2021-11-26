@@ -38,6 +38,21 @@ defmodule DocPrepper.Types do
 
   defmodule Table do
     defstruct [:fields]
+
+    defmodule Key do
+      defstruct [
+        :name,
+        :type,
+        :is_optional,
+      ]
+    end
+
+    defmodule Property do
+      defstruct [
+        :key,
+        :value,
+      ]
+    end
   end
 
   alias DocPrepper.Arg

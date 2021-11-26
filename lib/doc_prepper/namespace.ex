@@ -1,19 +1,18 @@
 defmodule DocPrepper.Namespace do
-  alias DocPrepper.Class
+  alias DocPrepper.FunctionSpecs
 
   defstruct [
     aliases: %{},
     classes: %{},
     types: %{},
     consts: %{},
-    specs: %{},
+    specs: %FunctionSpecs{},
     members: %{},
+    namespaces: %{},
   ]
 
   def add_class(namespace, name) do
-    classes = Map.put_new(namespace.classes, name, %Class{})
-
-    put_in(namespace.classes, classes)
+    put_in(namespace.classes[name], true)
   end
 end
 

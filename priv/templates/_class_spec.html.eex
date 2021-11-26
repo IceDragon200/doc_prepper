@@ -1,0 +1,11 @@
+<div id="class-spec-<%= @name %>" class="class-spec">
+  <h3 class="class-name">
+    <a href="/<%= Path.join(@path ++ [@name])%>">
+      <%= @name %>
+    </a>
+  </h3>
+
+  <span>
+    <%# inspect @class %>
+  </span>
+</div>

@@ -1,6 +1,7 @@
 defmodule DocPrepper.Document do
   alias __MODULE__, as: Document
   alias DocPrepper.ExtractState
+  alias DocPrepper.FunctionSpecs
   alias DocPrepper.Namespace, as: StateNamespace
   alias DocPrepper.Class, as: StateClass
 
@@ -10,7 +11,7 @@ defmodule DocPrepper.Document do
       classes: %{},
       types: %{},
       consts: %{},
-      specs: %{},
+      specs: %FunctionSpecs{},
       members: %{},
       namespaces: %{},
     ]
@@ -67,14 +68,37 @@ defmodule DocPrepper.Document do
   end
 
   defp merge_namespaces(%StateNamespace{} = state_ns, %Namespace{} = top, depth) do
-    Enum.reduce([:aliases, :classes, :types, :consts, :specs, :members], top, fn property_name, top ->
-      Enum.reduce(Map.fetch!(state_ns, property_name), top, fn {path, value}, top ->
-        nest_map_namespace_field(path, top, depth + 1, fn name, ns when is_binary(name) ->
-          map = Map.fetch!(ns, property_name)
-          map = put_in(map[name], value)
-          Map.put(ns, property_name, map)
+    Enum.reduce([:aliases, :classes, :namespaces, :types, :consts, :specs, :members], top, fn
+      :namespaces, top ->
+        child_namespaces = state_ns.namespaces
+        Enum.reduce(child_namespaces, top, fn {path, child_namespace}, top ->
+          nest_map_namespace_field(path, top, depth + 1, fn name, ns when is_binary(name) ->
+            merge_namespaces(child_namespace, ns, depth + 1)
+          end)
         end)
-      end)
+
+      :specs, top ->
+        function_specs = state_ns.specs
+
+        Enum.reduce([:functions, :methods, :class_methods], top, fn key, top ->
+          functions = Map.fetch!(function_specs, key)
+          Enum.reduce(functions, top, fn {path, funcspec}, top ->
+            nest_map_namespace_field(path, top, depth + 1, fn name, ns when is_binary(name) ->
+              function_specs = Map.fetch!(ns, :specs)
+              function_specs = FunctionSpecs.add_function(function_specs, funcspec)
+              Map.put(ns, :specs, function_specs)
+            end)
+          end)
+        end)
+
+      property_name, top ->
+        Enum.reduce(Map.fetch!(state_ns, property_name), top, fn {path, value}, top ->
+          nest_map_namespace_field(path, top, depth + 1, fn name, ns when is_binary(name) ->
+            map = Map.fetch!(ns, property_name)
+            map = put_in(map[name], value)
+            Map.put(ns, property_name, map)
+          end)
+        end)
     end)
   end
 

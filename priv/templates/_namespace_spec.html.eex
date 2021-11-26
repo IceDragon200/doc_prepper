@@ -1,0 +1,11 @@
+<div id="namespace-spec-<%= @name %>" class="namespace-spec">
+  <h3 class="namespace-name">
+    <a href="/<%= Path.join(@path ++ [@name])%>">
+      <%= @name %>
+    </a>
+  </h3>
+
+  <span>
+    <%# inspect @namespace %>
+  </span>
+</div>

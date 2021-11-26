@@ -1,0 +1,5 @@
+<div id="const-<%= @name %>" class="const">
+  <h3 class="const-name">
+    <%= render_type type: @const %>
+  </h3>
+</div>

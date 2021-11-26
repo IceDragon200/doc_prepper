@@ -1,0 +1,35 @@
+<div id="func-<%= @name %>" class="func">
+  <h3 class="func-signature">
+    <span class="func-type">
+      <%= case @func.scope do %>
+      <%= :function -> %>
+
+      <%= :method -> %>
+        #
+      <%= :class_method -> %>
+        &
+      <% end%>
+    </span>
+    <span class="func-name">
+      <%= @name %>
+    </span>
+    <span>
+      (
+    </span>
+    <%= Enum.intersperse(Enum.map(@func.args, fn arg -> %>
+      <span class="func-arg">
+        <%= render_type type: arg %>
+      </span>
+    <% end), ", ") %>
+    <span>
+      ):
+    </span>
+    <span class="func-return-type">
+      <%= render_type type: @func.return %>
+    </span>
+  </h3>
+
+  <p class="description">
+    <%= @func.description %>
+  </p>
+</div>
