@@ -3,8 +3,6 @@ defmodule DocPrepper.HTML do
 
   import Phoenix.HTML
 
-  alias DocPrepper.Document.Namespace
-
   EEx.function_from_file(:def, :render_namespace, Path.expand("../../priv/templates/namespace.html.eex", __DIR__), [:assigns])
   EEx.function_from_file(:def, :render_namespace_spec, Path.expand("../../priv/templates/_namespace_spec.html.eex", __DIR__), [:assigns])
   EEx.function_from_file(:def, :render_type, Path.expand("../../priv/templates/_type.html.eex", __DIR__), [:assigns])
@@ -16,8 +14,5 @@ defmodule DocPrepper.HTML do
   def html_escape!(blob) do
     {:safe, blob} = html_escape(blob)
     blob
-  end
-
-  def render_document(%Namespace{} = ns) do
   end
 end

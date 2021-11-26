@@ -21,7 +21,7 @@ render_namespace_file = fn render_namespace_file, name, namespace, root_path ->
 
   names = Map.keys(namespace.namespaces) ++ Map.keys(namespace.classes)
   Enum.each(Enum.uniq(names), fn ns_name ->
-    child_namespace = namespace.namespaces[ns_name] || %DocPrepper.Document.Namespace{}
+    child_namespace = namespace.namespaces[ns_name]
     render_namespace_file.(render_namespace_file, ns_name, child_namespace, path)
   end)
 end

@@ -1,13 +1,13 @@
 require Logger
 
 defmodule DocPrepper do
-  alias DocPrepper.Document
+  alias DocPrepper.Namespace
   alias DocPrepper.ExtractState
   alias DocPrepper.Types
   alias DocPrepper.Arg
   alias DocPrepper.FunctionSpec
 
-  @spec parse_directory(Path.t()) :: Document.t()
+  @spec parse_directory(Path.t()) :: Namespace.t()
   def parse_directory(dirname) do
     lua_filenames = Path.wildcard(Path.join(dirname, "**/*.lua"))
 
@@ -43,7 +43,7 @@ defmodule DocPrepper do
         end
       end)
 
-    Document.extract_state_to_document(state)
+    state.root_namespace
   end
 
   defp extract_comment_blocks(line, {state, comment_rows, comments}) when is_binary(line) do
@@ -139,7 +139,6 @@ defmodule DocPrepper do
             extract_metadata(rest, state)
 
           <<"@mutative", rest::binary>> ->
-            IO.inspect {{:decorator, :mutative}, rest}
             state = ExtractState.add_next_decorator(:mutative, state)
             extract_metadata(rest, state)
 
@@ -153,13 +152,11 @@ defmodule DocPrepper do
                   res
               end
 
-            IO.inspect {{:decorator, :recursive}, flag}
             state = ExtractState.add_next_decorator({:recursive, flag}, state)
             extract_metadata(rest, state)
 
           <<"@since ", rest::binary>> ->
             {value, rest} = parse_value(rest)
-            IO.inspect {{:decorator, :since}, value}
             state = ExtractState.add_next_decorator({:since, value}, state)
             extract_metadata(rest, state)
 
@@ -595,8 +592,6 @@ defmodule DocPrepper do
           {nil, rest}
       end
 
-    IO.inspect {:value_type, value_type}
-
     rest = trim_lspace(rest)
 
     {value, rest} =
@@ -632,12 +627,6 @@ defmodule DocPrepper do
           {Enum.reverse(acc), rest}
       end
     catch {:abort, fn_name, parse_rest} ->
-      IO.puts """
-      aborted from #{fn_name}
-
-      rest:
-        #{parse_rest}
-      """
       {Enum.reverse(acc), rest}
     end
   end

@@ -7,7 +7,21 @@
 <body>
   <div class="namespace">
     <h1 class="namespace-name">
-      <%= @name %>
+      <%
+        {_, acc} =
+          Enum.reduce(@path, {[], []}, fn comp, {prev, acc} ->
+            path = prev ++ [comp]
+            href = Path.join(path)
+            {path, [href | acc]}
+          end)
+
+        acc =
+          acc
+          |> Enum.reverse()
+      %>
+      <%= Enum.join(Enum.map(acc, fn href -> %>
+        <a href="/<%= href %>"><%= Path.basename(href) %></a>
+      <% end), ".") %>
     </h1>
 
     <%= unless Enum.empty?(@namespace.types) do %>
